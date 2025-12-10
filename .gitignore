@@ -3,6 +3,10 @@
 Scratchbook.ipynb
 /notebooks
 
+logs/
+data/
+config\ data/*
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
