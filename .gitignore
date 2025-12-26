@@ -6,6 +6,7 @@ Scratchbook.ipynb
 logs/
 data/
 config\ data/*
+.idea/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
