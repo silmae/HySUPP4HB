@@ -7,21 +7,21 @@ import numpy as np
 
 if __name__ == "__main__":
     # res_dir = f"D:\Koodi\Python\HySUPP_INRIA\HySUPP\logs\1\artifacts\Estimate\estimates.mat"
-    print(os.getcwd())
-    res_dir = f"{os.getcwd()}/logs/1/artifacts/Estimate\estimates.mat"
-    res_dir = os.path.abspath(res_dir)
-
-    print(f"Absolute res path: '{res_dir}'.")
-
-    res = loadmat(res_dir)
-    em = res['E']
-    A = res['A']
-
-    print("boi")
+    # print(os.getcwd())
+    # res_dir = f"{os.getcwd()}/logs/1/artifacts/Estimate\estimates.mat"
+    # res_dir = os.path.abspath(res_dir)
+    #
+    # print(f"Absolute res path: '{res_dir}'.")
+    #
+    # res = loadmat(res_dir)
+    # em = res['E']
+    # A = res['A']
+    #
+    # print("boi")
 
     # Plotting all the abundance maps.
 
-    runlist = [14]
+    runlist = [5]
 
     for run in runlist:
         # print(run)
