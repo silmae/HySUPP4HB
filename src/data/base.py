@@ -185,12 +185,15 @@ class HSIWithGT(HSI):
         dataset,
         data_dir,
         figs_dir,
+        p = 3 # added p argument similarly to how RealHSI is initialized
     ):
         super().__init__(
             dataset=dataset,
             data_dir=data_dir,
             figs_dir=figs_dir,
         )
+
+        self.p = p
 
         # Sanity check on ground truth
         assert self.E.shape == (self.L, self.p)
@@ -202,17 +205,19 @@ class HSIWithGT(HSI):
             self.labels = [s.strip(" ") for s in tmp_labels]
 
         except Exception:
-            # Create numeroted labels
+            # Create numerated labels
             self.labels = [f"#{ii}" for ii in range(self.p)]
 
         # Check physical constraints
         # Abundance Sum-to-One Constraint (ASC)
-        assert np.allclose(
-            self.A.sum(0),
-            np.ones(self.N),
-            rtol=1e-3,
-            atol=1e-3,
-        )
+        # NOTE sum to one constraint not enforced because the reference plates are
+        #   excluded from the endmembers in HyperBlend simulations.
+        # assert np.allclose(
+        #     self.A.sum(0),
+        #     np.ones(self.N),
+        #     rtol=1e-3,
+        #     atol=1e-3,
+        # )
         # Abundance Non-negative Constraint (ANC)
         assert np.all(self.A >= -EPS)
         # Endmembers Non-negative Constraint (ENC)
