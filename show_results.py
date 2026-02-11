@@ -3,17 +3,22 @@ import logging
 import subprocess
 import datetime
 import sys
+import yaml
 
 from scipy.io import loadmat
 from matplotlib import pyplot as plt
 import numpy as np
 
-accepted_models = ["FCLS", "UnDIP", "MiSiCNet", "MSNet"]
+from src.model.blind import MiSiCNet
+
+accepted_supervised_models = ["FCLS", "UnDIP"]
+accepted_blind_models = ["MiSiCNet", "MSNet"]
 accepted_extractors = ["SiVM", "SISAL", "VCA"]
 
 def show_results():
 
-    runlist = [22]
+    # runlist = [22]
+    runlist = range(50,77)
 
     for run in runlist:
         # print(run)
@@ -97,12 +102,10 @@ def _init_logging():
     logging.info("Logging initialized")
 
 
-def hysupp_runner(data_name: str, model_name: str, extractor_name: str, dry_run = True):
+def hysupp_runner(data_name: str, model_name: str, extractor_name: str=None, dry_run = True):
     """Run a single HySUPP experiment."""
 
-    if extractor_name not in accepted_extractors:
-        raise ValueError(f"Unsupported extractor {extractor_name}")
-    if model_name not in accepted_models:
+    if model_name not in accepted_supervised_models and model_name not in accepted_blind_models:
         raise ValueError(f"Unsupported model {model_name}")
 
     if model_name == "FCLS" or model_name == "UnDIP":
@@ -112,7 +115,42 @@ def hysupp_runner(data_name: str, model_name: str, extractor_name: str, dry_run 
     else:
         raise ValueError(f"Unsupported model {model_name}. Check the list of accepted models.")
 
-    call_string = f"python unmixing.py mode={mode} data={data_name} model={model_name} extractor={extractor_name}"
+    if extractor_name is not None:
+
+        if extractor_name not in accepted_extractors:
+            raise ValueError(f"Unsupported extractor {extractor_name}")
+
+        combination_name = f"{extractor_name}_{model_name}"
+    else:
+        combination_name = f"{model_name}"
+
+    # path_result_dir_top = os.path.abspath(os.path.join(f"./Experiments/{mode}/{combination_name}/"))
+    path_result_dir_top = os.path.abspath(os.path.join(f"./Experiments/{mode}/"))
+
+    logging.error(f"The top level result directory is {path_result_dir_top}")
+
+
+    folder_name = 'MyModel_hals2_ssim_v2'
+
+    with open('./config/mlxp.yaml', 'r') as file:
+        config_yaml = yaml.safe_load(file)
+
+    # Modify a value
+    config_yaml['logger']['parent_log_dir'] = f"{path_result_dir_top}/{combination_name}_{data_name}/"
+    # config_yaml['logger']['parent_log_dir'] = f"{path_result_dir_top}"
+    config_yaml['logger']['forced_log_id'] = -1
+
+    # Save back to YAML file
+    with open('./config/mlxp.yaml', 'w') as file:
+        yaml.safe_dump(config_yaml, file)
+
+
+
+
+    if extractor_name is not None:
+        call_string = f"python unmixing.py mode={mode} data={data_name} model={model_name} extractor={extractor_name}"
+    else:
+        call_string = f"python unmixing.py mode={mode} data={data_name} model={model_name}"
 
     logging.info(f"running HySUPP with following argument list:\n\t'{call_string}'")
 
@@ -130,7 +168,7 @@ def hysupp_runner(data_name: str, model_name: str, extractor_name: str, dry_run 
         print("This was a dry run. Nothing is really executed.")
 
 
-def experiment_looper(themes, resolutions, extractor_name: str, model_name: str):
+def experiment_looper(themes, resolutions, model_name: str, extractor_name=None):
 
     for resolution in resolutions:
         for theme in themes:
@@ -141,7 +179,7 @@ def experiment_looper(themes, resolutions, extractor_name: str, model_name: str)
             if os.path.exists(mat_path):
                 print(f"Path to mat ok at '{mat_path}'")
                 try:
-                    hysupp_runner(data_name=data_name, model_name=model_name, extractor_name=extractor_name, dry_run=True)
+                    hysupp_runner(data_name=data_name, model_name=model_name, extractor_name=extractor_name, dry_run=False)
                 except ValueError as e:
                     logging.error(f"Failed to run HySUPP for {data_name}. Continuing to the next experiment.\n "
                                   f"Runner exception: {e}")
@@ -149,14 +187,19 @@ def experiment_looper(themes, resolutions, extractor_name: str, model_name: str)
                 print(f"Path not found '{mat_path}'")
 
 
-def model_looper(themes, resolutions, extractors, models):
+def model_looper(themes, resolutions, models, extractors=None):
     for model in models:
-        for extractor in extractors:
-            experiment_looper(
-                themes=themes, resolutions=resolutions, extractor_name=extractor,
-                model_name=model
-                )
-
+        if model in accepted_supervised_models:
+            if extractors is not None:
+                for extractor in extractors:
+                    experiment_looper(
+                        themes=themes, resolutions=resolutions, extractor_name=extractor,
+                        model_name=model
+                        )
+            else:
+                raise ValueError(f"Running of supervised model '{model}' requested but no extractors were provided.")
+        else:
+            experiment_looper(themes=themes, resolutions=resolutions, model_name=model)
 
 if __name__ == "__main__":
 
@@ -179,13 +222,17 @@ if __name__ == "__main__":
     data_name = "FDS1_16"
     model_name = "UnDIP"
     extractor_name = "SISAL"
-    extractors = ["SISAL", "SiVM", "FAKEextractor"]
-    models = ["FCLS", "UnDIP", "FakeMODEL"]
-    # hysupp_runner(data_name=data_name, model_name=model_name, extractor_name=extractor_name)
-    themes = ["FWP1", "FDS1", "IWP1", "XYY6"]
-    resolutions = [4, 16, 64, 256]
+    extractors = ["SISAL", "SiVM", "VCA"]
+    supervised_models = ["FCLS", "UnDIP"]
+    blind_models = ["MSNet"]
+    # hysupp_runner(data_name=data_name, model_name=model_name, extractor_name=extractor_name, dry_run=False)
+    themes = ["FWP1", "FDS1", "FWP2", "FDS2", "IWP1", "IDS1", "OWP1", "ODS1", "OWP2", "ODS2"]
+    resolutions = [4, 16, 64, 256, 1024]
     # experiment_looper(themes=themes, resolutions=resolutions, extractor_name=extractor_name, model_name=model_name)
-    model_looper(themes=themes, resolutions=resolutions, extractors=extractors, models=models)
+    model_looper(themes=themes, resolutions=resolutions, extractors=accepted_extractors, models=accepted_supervised_models)
+    model_looper(themes=themes, resolutions=resolutions, models=accepted_blind_models)
+
+    # show_results()
 
 
 
