@@ -108,4 +108,7 @@ def main(ctx: mlxp.Context) -> None:
             log_name="eRMSE",
         )
 
+    hsi.plot_endmembers()
+    hsi.plot_abundances()
+
     log.info("Blind Unmixing - [END]")
