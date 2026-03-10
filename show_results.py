@@ -5,6 +5,8 @@ import datetime
 import sys
 import yaml
 import json
+import pandas as pd
+import seaborn as sns
 
 from scipy.io import loadmat
 from matplotlib import pyplot as plt
@@ -149,7 +151,9 @@ def by_key_val(dicts, keys: list, values: list):
     if len(keys) != len(values):
         raise ValueError(f"Provide as many keys {len(keys)} as values {len(values)}")
 
-    print(f"####### Results by {keys} == {values}  ################################")
+    # print(f"####### Results by {keys} == {values}  ################################")
+
+    dict_list = []
 
     for json_dict in dicts:
         matches = True
@@ -158,76 +162,79 @@ def by_key_val(dicts, keys: list, values: list):
                 matches = False
 
         if matches:
-            print(json_dict)
+            dict_list.append(json_dict)
+            # print(json_dict)
+
+    return dict_list
 
 
-def show_results():
+def show_results(metric: str):
+    """
+
+    :param metric:
+        One of: "SAD", "SRE", "aRMSE", "eRMSE".
+    """
 
     path_dir_experiments = os.path.abspath(f"{os.getcwd()}/experiments/")
     path_dir_supervised_results = os.path.join(path_dir_experiments, "supervised/")
     path_dir_blind_results = os.path.join(path_dir_experiments, "blind/")
 
-    path_loop = path_dir_supervised_results
-    # path_loop = path_dir_blind_results
+    path_loops = [path_dir_supervised_results, path_dir_blind_results]
 
     dicts = []
 
-    for dir_name in os.listdir(path_loop):
-        path_dir_result_top = os.path.abspath(os.path.join(path_loop, dir_name, "1/"))
-        split_name = dir_name.split("_")
-        extractor_name = split_name[-4]
-        unmixer_name = split_name[-3]
-        scene_name = split_name[-2]
-        resolution = split_name[-1]
-        # print(f"Scene {scene_name}, resolution {resolution}, path {path_dir_result_top}")
-        path_dir_metrics = os.path.join(path_dir_result_top, "metrics/")
-        path_file_sad = os.path.join(path_dir_metrics, "SAD.json")
+    key_extractor_name = "Extractor"
+    key_unmixer_name = "Unmixer"
+    key_ext_plus_umx = "ext_plus_umx"
+    key_scene_name = "Scene name"
+    key_scene_name_bare = "Scene"
+    key_resolution = "Resolution"
+    key_run_name = "Run"
+    key_soil_type = "Soil type"
+    key_overall = metric
 
-        if os.path.exists(path_file_sad):
-            with open(path_file_sad) as file:
-                json_dict = json.load(file)
-                json_dict["extractor_name"] = extractor_name
-                json_dict["unmixer_name"] = unmixer_name
-                json_dict["scene_name"] = scene_name
-                json_dict["resolution"] = resolution
-                json_dict["run_name"] = dir_name
+    for path_loop in path_loops:
+        for dir_name in os.listdir(path_loop):
+            path_dir_result_top = os.path.abspath(os.path.join(path_loop, dir_name, "1/"))
+            split_name = dir_name.split("_")
+            if len(split_name) == 4:
+                extractor_name = split_name[-4]
+            else:
+                extractor_name = "VCA*"
+            unmixer_name = split_name[-3]
+            scene_name = split_name[-2]
+            resolution = split_name[-1]
+            # print(f"Scene {scene_name}, resolution {resolution}, path {path_dir_result_top}")
+            path_dir_metrics = os.path.join(path_dir_result_top, "metrics/")
+            path_file_sad = os.path.join(path_dir_metrics, f"{metric}.json")
 
-                # print(json_dict)
-                dicts.append(json_dict)
+            if os.path.exists(path_file_sad):
+                with open(path_file_sad) as file:
+                    json_dict = json.load(file)
+                    json_dict[key_extractor_name] = extractor_name
+                    json_dict[key_unmixer_name] = unmixer_name
+                    json_dict[key_ext_plus_umx] = extractor_name + "_" + unmixer_name
+                    json_dict[key_scene_name] = scene_name
+                    json_dict[key_scene_name_bare] = scene_name.replace("WP", "").replace("DS", "")
+                    json_dict[key_resolution] = int(resolution)
+                    json_dict[key_run_name] = dir_name
+                    if "DS" in scene_name:
+                        json_dict[key_soil_type] = "dry sand"
+                    elif "WP" in scene_name:
+                        json_dict[key_soil_type] = "wet peat"
+                    else:
+                        json_dict[key_soil_type] = None
 
-    # by_key_val(dicts, keys=["extractor_name"], values=["SISAL"])
-    # by_key_val(dicts, keys=["extractor_name"], values=["SiVM"])
-    # by_key_val(dicts, keys=["unmixer_name"], values=["UnDIP"])
-    # by_key_val(dicts, keys=["unmixer_name"], values=["FCLS"])
-    reso = "64"
-    # by_key_val(dicts, keys=["scene_name", "resolution"], values=["FWP1", reso])
-    # by_key_val(dicts, keys=["scene_name", "resolution"], values=["FDS1", reso])
-    # by_key_val(dicts, keys=["scene_name", "resolution"], values=["FWP2", reso])
-    # by_key_val(dicts, keys=["scene_name", "resolution"], values=["FDS2", reso])
-    # by_key_val(dicts, keys=["scene_name", "resolution"], values=["IWP1", reso])
-    # by_key_val(dicts, keys=["scene_name", "resolution"], values=["IDS1", reso])
-    # by_key_val(dicts, keys=["scene_name", "resolution"], values=["OWP1", reso])
-    # by_key_val(dicts, keys=["scene_name", "resolution"], values=["ODS1", reso])
-    # by_key_val(dicts, keys=["scene_name", "resolution"], values=["OWP2", reso])
-    # by_key_val(dicts, keys=["scene_name", "resolution"], values=["ODS2", reso])
+                    # print(json_dict)
+                    dicts.append(json_dict)
 
-    extract = "SISAL"
-    # by_key_val(dicts, keys=["scene_name", "extractor_name"], values=["ODS2", extract])
+    pd_data = pd.DataFrame(dicts)
+    pd_data = pd_data.rename(columns={"Overall": metric,})
+    pd_data = pd_data[[key_run_name, key_resolution, key_overall, key_soil_type, key_extractor_name, key_unmixer_name, key_scene_name, key_ext_plus_umx, key_scene_name_bare,]]
+    sns.catplot(data=pd_data, kind="bar", x=key_scene_name_bare, y=key_overall, hue=key_ext_plus_umx, row=key_soil_type, col=key_resolution)
+    plt.show()
 
-    by_key_val(dicts, keys=["scene_name", "extractor_name"], values=["FWP1", extract])
-    by_key_val(dicts, keys=["scene_name", "extractor_name"], values=["FDS1", extract])
-    by_key_val(dicts, keys=["scene_name", "extractor_name"], values=["FWP2", extract])
-    by_key_val(dicts, keys=["scene_name", "extractor_name"], values=["FDS2", extract])
-    by_key_val(dicts, keys=["scene_name", "extractor_name"], values=["IWP1", extract])
-    by_key_val(dicts, keys=["scene_name", "extractor_name"], values=["IDS1", extract])
-    by_key_val(dicts, keys=["scene_name", "extractor_name"], values=["OWP1", extract])
-    by_key_val(dicts, keys=["scene_name", "extractor_name"], values=["ODS1", extract])
-    by_key_val(dicts, keys=["scene_name", "extractor_name"], values=["OWP2", extract])
-    by_key_val(dicts, keys=["scene_name", "extractor_name"], values=["ODS2", extract])
-
-
-
-    exit(0)
+    return
 
     # runlist = [22]
     runlist = range(50,77)
@@ -316,10 +323,10 @@ if __name__ == "__main__":
     themes = ["FWP1", "FDS1", "FWP2", "FDS2", "IWP1", "IDS1", "OWP1", "ODS1", "OWP2", "ODS2"]
     resolutions = [4, 16, 64, 256, 1024]
     # experiment_looper(themes=themes, resolutions=resolutions, extractor_name=extractor_name, model_name=model_name)
-    # model_looper(themes=themes, resolutions=resolutions, extractors=accepted_extractors, models=accepted_supervised_models)
+    # model_looper(themes=themes, resolutions=resolutions, extractors=["VCA"], models=["UnDIP"])
     # model_looper(themes=themes, resolutions=resolutions, models=accepted_blind_models)
 
-    show_results()
+    show_results(metric="aRMSE")
 
 
 
